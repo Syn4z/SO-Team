@@ -1,189 +1,142 @@
-org 0x7c00  ; Origin of the bootloader program
+org 0x7c00			; Set the origin of the program to the bootloader's default address.
 
-section .data
-	buffer times 256 db 0x0  ; 256-byte buffer initialized to zeros
-	x_coord dw 0  ; X-coord for cursor position
-	y_coord dw 0  ; Y-coord for cursor position
+mov AL, 0x3			; Set AL register to 0x3, indicating the video mode.
+mov AH, 0			; Clear the AH register.
+int 0x10			; Trigger an interrupt to set the video mode (80x25 text mode).
 
-section .text
-	global _start
+mov SI, buffer		; Initialize SI register as a pointer to the buffer.
+typing:				; Label for the main input loop.
+    mov AH, 0		; Clear AH register.
+    int 0x16		; Wait for a keyboard key press and store it in AL.
 
-_start:
-	mov ah, 0  ; Video mode
-	mov al, 0x3  ; 80x25 text mode
-	int 10h    
+    cmp AH, 0x0e	; Check if the Backspace key was pressed.
+    je backspace_key	; If so, jump to the "backspace_key" label.
 
-	mov si, buffer     ; Initialize SI register to point to the buffer
-	mov word [x_coord], 0 
-	mov word [y_coord], 0
+    cmp AH, 0x1c	; Check if the Enter key was pressed.
+    je enter_key	; If so, jump to the "enter_key" label.
 
-keyboard_read:
-	mov ah, 00h  ; Read a character from the keyboard
-	int 16h       ; Keyboard BIOS interrupt
+    cmp AL, 0x20	; Check if the entered character is a space or a printable character.
+    jge print_character	; If yes, jump to the "print_character" label.
 
-	cmp al, 0x08  ; backspace (ASCII code 0x08)
-	je input_backspace
+    jmp typing		; Otherwise, continue reading user keyboard inputs.
 
-	cmp al, 0x0D  ; enter key (ASCII code 0x0D)
-	je input_enter
+backspace_key:		; Label for handling the Backspace key.
+    cmp SI, buffer	; Check if the buffer is empty.
+    je typing		; If empty, go back to the input loop.
+    dec SI		    ; Decrement SI to move the pointer back.
+    mov byte [SI], 0	; Clear the character at the current position in the buffer.
 
-	cmp al, 0x20	; Is a printable character.
-    	jge echo_char	
-    	
-    	jmp keyboard_read
+    mov AH, 03h	    ; Get cursor position.
+    mov BH, 0		; Set BH to 0 (video page).
+    int 0x10		; Get the current cursor position.
 
-input_backspace:
-	cmp word [x_coord], 0 
-	je prev_line
+    cmp DL, 0		; Check if DL (column) is at the beginning of the line.
+    jz last_line	; If so, move the cursor to the previous line.
+    jmp last_character	; Otherwise, move the cursor to the previous character position.
 
-	dec word [x_coord]
+last_character:		; Label for moving the cursor to the previous character position.
+    mov AH, 02h	    ; Set cursor position.
+    dec DL		    ; Decrement DL (column) to move left.
+    int 0x10		; Set the new cursor position.
+    jmp space_character	; Jump to space character handling.
 
-	mov ah, 02h  ; Set the cursor position
-	mov bh, 0
-	mov dl, [x_coord]  ; Column
-	int 10h
+last_line:		    ; Label for moving the cursor to the previous line.
+    mov AH, 02h	    ; Set cursor position.
+    mov DL, 79		; Set DL (column) to 79 (end of line).
+    dec DH		; Decrement DH (row) to move up one line.
+    int 0x10		; Set the new cursor position.
 
-	mov ah, 0Ah  ; Write character in teletype mode
-	mov bh, 0  ; Page
-	mov al, ' '  ; Space character
-	mov cx, 2  ; Counter
-	int 10h
-	
-	cmp si, buffer
-	je keyboard_read  ; If SI is at the start, go back to reading
+space_character:	; Label for handling space character.
+    mov AH, 0Ah		; Set AH to 0xa (teletype output).
+    mov AL, 0x20	; Set AL to 0x20 (space character).
+    mov CX, 1		; Set CX to 1 (number of repetitions).
+    int 0x10		; Display the space character.
+    jmp typing		; Continue reading user input.
 
-	dec si
-	mov byte [si], 0  ; Set the character in the buffer to 0 (null terminator)
+enter_key:		    ; Label for handling the Enter key.
+    mov AH, 03h	    ; Get cursor position.
+    mov BH, 0		; Set BH to 0 (video page).
+    int 0x10		; Get the current cursor position.
 
-	jmp keyboard_read
+    sub SI, buffer	; Calculate the difference between SI and the buffer address.
+    jz insert_line	; If SI equals the buffer address, jump to insert_line.
 
-prev_line:
-	cmp word [y_coord], 0
-	je keyboard_read
+    mov AH, 03h	    ; Get cursor position.
+    mov BH, 0		; Set BH to 0 (video page).
+    int 0x10		; Get the current cursor position.
 
-	dec word [y_coord]
-	mov word [x_coord], 79  ; Set the x_coord to the rightmost column
+    cmp DH, 24		; Check if DH (row) is 24 (last row).
+    jl print_echo	; If not, jump to print_echo.
 
-	mov ah, 02h  ; Set the cursor position
-	mov bh, 0
-	mov dl, [x_coord]  ; Column
-	mov dh, [y_coord]  ; Row
-	int 10h
+    mov AH, 0x06	; Set AH to 0x06 (scroll window up).
+    mov AL, 1		; Set AL to 1 (number of lines to scroll).
+    mov BH, 0x07	; Set BH to 0x07 (attribute for blank lines).
+    mov CX, 0		; Set CX to 0 (upper left corner).
+    mov DX, 0x184f	; Set DX to the bottom right corner.
+    int 0x10		; Scroll the window up.
+    mov DH, 0x17	; Set DH to 0x17 (last visible row).
 
-	jmp keyboard_read
+print_echo:		; Label for printing characters to the screen.
+    mov BH, 0		; Set BH to 0 (video page).
+    mov AX, 0		; Clear AX register.
+    mov ES, AX		; Set ES to 0 (extra segment).
+    mov BP, buffer	; Set BP to point to the buffer.
 
-input_enter:
-	cmp word [y_coord], 24
-	je keyboard_read
+    mov BL, 60h		; Set BL to 60h (color: black on orange).
+    mov CX, SI		; Set CX to the current buffer position.
+    inc DH		; Increment DH to move to the next row.
+    mov DL, 0		; Set DL to 0 (column).
 
-	call new_line
+    mov AX, 1301h	; Set AX to 1301h (teletype output, update cursor).
+    int 0x10		; Display the character and update the cursor.
 
-	cmp si, buffer
-	je keyboard_read
-	
-	call new_line
-	call buffer_spacing
-	call print_buffer
+insert_line:		; Label for inserting a new line.
+    cmp DH, 24		; Check if DH (row) is 24 (last row).
+    je scroll_down	; If so, jump to scroll_down.
 
-	.loop:
-		call new_line
-		dec cx
-		cmp cx, 0
-		jg .loop
+    mov AH, 03h	    ; Get cursor position.
+    mov BH, 0		; Set BH to 0 (video page).
+    int 0x10		; Get the current cursor position.
+    jmp cursor_down	; Continue moving the cursor down.
 
-	call new_line
+scroll_down:		; Label for scrolling down the screen.
+    mov AH, 0x06	; Set AH to 0x06 (scroll window up).
+    mov AL, 1		; Set AL to 1 (number of lines to scroll).
+    mov BH, 0x07	; Set BH to 0x07 (attribute for blank lines).
+    mov CX, 0		; Set CX to 0 (upper left corner).
+    mov DX, 0x184f	; Set DX to the bottom right corner.
+    int 0x10		; Scroll the window up.
+    mov DH, 0x17	; Set DH to 0x17 (last visible row).
 
-	mov si, buffer  ; Reset SI to the start of the buffer
-	xor cx, cx
-	jmp clear_buffer
+cursor_down:		; Label for moving the cursor down by one line.
+    mov AH, 02h	    ; Set cursor position.
+    mov BH, 0		; Set BH to 0 (video page).
+    inc DH		; Increment DH to move down one row.
+    mov DL, 0		; Set DL to 0 (column).
+    int 0x10		; Set the new cursor position.
 
-print_buffer:
-    mov si, buffer   ; Point SI to the beginning of the buffer
-    jmp print_char
+    add SI, buffer	; Increment SI to move to the next buffer position.
 
-print_char:
-    mov al, [si]     ; Load the character from the buffer
-    cmp al, 0        ; Check if it's the null terminator
-    je buffer_empty  ; If it is, the buffer is empty
+clear_buffer:		; Label for clearing the buffer.
+    mov byte [SI], 0	; Clear the character at the current buffer position.
+    inc SI		; Increment SI to move to the next buffer position.
+    cmp SI, 0		; Compare SI to 0.
+    jne clear_buffer	; If not equal, continue clearing the buffer.
+    mov SI, buffer	; Reset SI to point to the beginning of the buffer.
+    jmp typing		; Continue reading user input.
 
-    mov ah, 0x0e  ; Teletype output
-    int 10h
+print_character:	; Label for printing a character.
+    cmp AL, 0x7f	; Check if the entered character is a control character.
+    jge typing		; If yes, jump back to reading user input.
 
-    inc si  ; Next character in the buffer
-    jmp print_char
+    cmp SI, buffer + 256	; Check if SI is at the end of the buffer.
+    je typing		; If so, jump back to reading user input.
 
-buffer_empty:
-    ret  ; Return from the function
+    mov [SI], AL	; Store the entered character in the buffer.
+    inc SI		; Increment SI to move to the next buffer position.
 
-; New line additions for large inputs
-buffer_spacing:
-    cmp si, buffer + 80
-    jle .spacing_1 
-    
-    cmp si, buffer + 160 
-    jle .spacing_2 
-    
-    cmp si, buffer + 240 
-    jle .spacing_3 
-    
-    call new_line  
-    call new_line
-    call new_line
-    mov cx, 4 
-    ret
+    mov AH, 0xe		; Set AH to 0xe (teletype output).
+    int 10h		; Display the entered character.
+    jmp typing		; Continue reading user input.
 
-.spacing_1:
-    mov cx, 1
-    ret 
-
-.spacing_2:
-    call new_line
-    mov cx, 2
-    ret 
-
-.spacing_3:
-    call new_line
-    call new_line
-    mov cx, 3
-    ret 
-
-clear_buffer:
-    mov byte [si], 0  ; Replace byte in the buffer with 0
-    inc si
-    inc cx
-    cmp cx, 256
-    jl clear_buffer_continue
-
-    mov si, buffer  ; Reset SI to the beginning of the buffer
-    mov word [x_coord], 0  ; Reset X-coordinate to 0
-    jmp keyboard_read
-
-clear_buffer_continue:
-    jmp clear_buffer
-
-new_line:
-    inc word [y_coord]  ; Increment the Y-coordinate for a new line
-    mov word [x_coord], 0  ; Reset X-coordinate to 0
-
-    mov ah, 02h  ; Set the cursor position
-    mov dh, [y_coord]  ; Row
-    mov dl, [x_coord]  ; Column
-    int 10h 
-    ret
-
-echo_char:
-    cmp al, 0x7f 	; Omit delete char
-    jge keyboard_read
-
-    cmp si, buffer + 256  ; Buffer limit
-    je keyboard_read
-
-    mov [si], al  ; Store the character in the buffer at the current position
-    inc si 
-
-    inc word [x_coord]
-    
-    mov ah, 0Eh  ; Teletype output
-    int 10h
-    
-    jmp keyboard_read 
+buffer: times 256 db 0x0	; Define a buffer of 256 bytes, initialized with null characters.
