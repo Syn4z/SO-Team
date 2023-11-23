@@ -95,15 +95,57 @@ check_the_input:
     mov bx, input             ; а в bx - сам ввод
     call compare_strs_si_bx   ; сравниваем si и bx (введено ли help)
 
-    cmp cx, 1                 ; compare_strs_si_bx загружает в cx 1, если
-                              ; строки равны друг другу
+    cmp cx, 1                 ; compare_strs_si_bx загружает в cx 1, если ; строки равны друг другу
     je equal_help             ; равны => вызываем функцию отображения
                               ; текста help
+
+    mov si, option_1
+    mov bx, input
+    call compare_strs_si_bx
+
+    cmp cx, 1
+    je equal_option_1
+
+    mov si, option_2
+    mov bx, input
+    call compare_strs_si_bx
+
+    cmp cx, 1
+    je equal_option_2
+
+    cmp cx, 0
+    je equal_random_string
 
     jmp equal_to_nothing      ; если не равны, то выводим "Wrong command!"
 
 equal_help:
     mov si, help_desc
+    call print_string_si
+
+    jmp done
+
+equal_option_1:
+    mov si, variables_1
+    call print_string_si
+
+    jmp done
+
+equal_option_2:
+    mov si, variables_2
+    call print_string_si
+
+    jmp done
+
+equal_random_string:
+    mov si, new_line          ; печатаем символ новой строки
+    call print_string_si
+
+
+    mov bx, input
+    mov si, bx
+    call print_string_si
+
+    mov si, new_line          ; печатаем символ новой строки
     call print_string_si
 
     jmp done
@@ -129,12 +171,17 @@ exit:
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 wrong_command: db "Invalid command", 0x0d, 0xa, 0
-greetings: db "Welcome to the club", 0x0d, 0xa, 0xa, 0
+greetings: db "Floppy Commands", 0x0d, 0xa, 0xa, 0
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
 goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
 prompt: db ">", 0
 new_line: db 0x0d, 0xa, 0
 help_command: db "help", 0
+option_1: db "1", 0
+option_2: db "2", 0
+option_3: db "3", 0
+variables_1: db "N - Times to print, Address - {Head, Track, Sector}, String - {Your string}", 0x0d, 0xa, 0
+variables_2: db "N - Sectors, Address - {Head, Track, Sector}, String - {Your string}", 0x0d, 0xa, 0
 input: times 64 db 0          ; размер буффера - 64 байта
 
 times 510 - ($-$$) db 0

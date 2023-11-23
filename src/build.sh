@@ -28,13 +28,19 @@ echo "Step 2: Copied $com_file to $flp_file."
 truncate -s 1474560 "$flp_file"
 echo "Step 3: Resized $flp_file to 1.44MB."
 
-# Step 4: Change the storage to $flp_file in VirtualBox
+# Step 4: Close VirtualBox
 VM_NAME="BestOS" 
-VBoxManage storageattach "$VM_NAME" --storagectl "Floppy" --port 0 --device 0 --type fdd --medium "$flp_file"
-echo "Step 4: Storage in VirtualBox changed to $flp_file."
+VBoxManage controlvm "$VM_NAME" poweroff
+echo "Virtual Machine $VM_NAME closed."
 
-# Step 5: Start the Virtual Machine
+sleep 3
+
+# Step 5: Change the storage to $flp_file in VirtualBox
+VBoxManage storageattach "$VM_NAME" --storagectl "Floppy" --port 0 --device 0 --type fdd --medium "$flp_file"
+echo "Step 5: Storage in VirtualBox changed to $flp_file."
+
+# Step 6: Start the Virtual Machine
 VBoxManage startvm "$VM_NAME"
-echo "Step 5: Virtual Machine $VM_NAME started."
+echo "Step 6: Virtual Machine $VM_NAME started."
 
 echo "All steps completed successfully."
