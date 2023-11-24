@@ -1,37 +1,47 @@
 org 0x7c00
 
-section .data
-    message db '@@@FAF-213 Sorin IATCO###'
+message: db '@@@FAF-213 Sorin IATCO###', 0
 
 section .text
     global _start
 
 _start:
-    mov si, 9         ; Set loop counter to 9
+    ; Initialization
+    mov si, 10          ; Set loop counter to 10
 
-    ; Loop to duplicate the string in the first and last sector
-    mov ah, 03h        ; Function code for write sectors
-    mov al, 1           ; Number of sectors to write
-    mov ch, 1           ; Cylinder number
-    mov cl, 5           ; Sector number
+read_sector_loop:
+    ; Read existing data from the sector into the buffer
+    mov ah, 02h         ; Function code for read sectors
+    mov al, 1           ; Number of sectors to read
+    mov ch, 1           ; Cylinder number     
+    mov cl, 5           ; Sector number    
     mov dh, 1           ; Head number
-    lea bx, [message]   ; Pointer to the string
-    int 13h            ; BIOS interrupt
+    mov bx, buffer      ; Pointer to the buffer
+    int 13h             ; BIOS interrupt
 
-    duplicate_loop:
-        inc cl             ; Increment sector number
-        dec si
+    ; Concatenate the new message to the existing data
+    mov di, buffer
+    add di, 27          ; Move to the end of the existing data
+    mov si, message
+    add si, 0           ; Pointer to the new message
+    rep movsb           ; Copy the new message to the buffer
 
-        mov ah, 03h        ; Function code for write sectors
-        mov al, 1           ; Number of sectors to write
-        mov ch, 1           ; Cylinder number         
-        mov dh, 1           ; Head number
-        lea bx, [message]   ; Pointer to the string
-        int 13h            ; BIOS interrupt
-        
-        cmp si, 0
-        jnz duplicate_loop
+    ; Write the updated data back to the sector
+    mov ah, 03h         ; Function code for write sectors
+    mov al, 1           ; Number of sectors to write
+    mov ch, 1           ; Cylinder number     
+    mov cl, 5           ; Sector number    
+    mov dh, 1           ; Head number
+    mov bx, buffer      ; Pointer to the buffer
+    int 13h             ; BIOS interrupt
 
-    ; Exit the program
-    mov ah, 4ch        ; Function code for program termination
+    ; Loop control
+    dec si
+    cmp si, 0
+    jnz read_sector_loop
+
+    ; Program termination
+    mov ah, 4ch         ; Function code for program termination
     int 21h             ; DOS interrupt
+
+buffer: resb 512     ; Buffer to store the sector data
