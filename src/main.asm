@@ -5,6 +5,7 @@ jmp start                     ; сразу переходим в start
 
 %include "print_string.asm"
 %include "str_compare.asm"
+%include "utils.asm"
 
 ; ====================================================
 
@@ -18,15 +19,12 @@ start:
 
     mov sp, 0x7c00            ; инициализация стека
 
-    mov si, greetings         ; печатаем приветственное сообщение
-    call print_string_si      ; после чего сразу переходим в mainloop
-
 mainloop:
-    mov si, prompt            ; печатаем стрелочку
-    call print_string_si
-
+    ; mov si, new_line
+    ; call print_string_si
+    ; mov si, help_desc         ; печатаем текст help
+    ; call print_string_si
     call get_input            ; вызываем функцию ожидания ввода
-
     jmp mainloop              ; повторяем mainloop...
 
 get_input:
@@ -53,7 +51,7 @@ input_processing:
     mov [input+bx], al        ; и сохраняем его в буффер ввода
     inc bx                    ; увеличиваем индекс
 
-    cmp bx, 64                ; если input переполнен
+    cmp bx, 256               ; если input переполнен
     je check_the_input        ; то ведем себя так, будто был нажат enter
 
     jmp input_processing      ; и идем заново
@@ -91,32 +89,46 @@ check_the_input:
     mov si, new_line          ; печатаем символ новой строки
     call print_string_si
 
+    ; inc byte [var_flag]
+    ; Option 1 processing
+    cmp byte [var_flag], 1
+    je n_processing
+
+    cmp byte [var_flag], 2
+    je head_processing
+
+    ; cmp byte [var_flag], 3
+    ; je track_processing
+
+    ; cmp byte [var_flag], 4
+    ; je sector_processing
+
+    ; cmp byte [var_flag], 5
+    ; je string_processing
+
     mov si, help_command      ; в si загружаем заранее подготовленное слово help
     mov bx, input             ; а в bx - сам ввод
     call compare_strs_si_bx   ; сравниваем si и bx (введено ли help)
-
     cmp cx, 1                 ; compare_strs_si_bx загружает в cx 1, если ; строки равны друг другу
     je equal_help             ; равны => вызываем функцию отображения
                               ; текста help
 
+    ; Option 1
     mov si, option_1
     mov bx, input
     call compare_strs_si_bx
-
     cmp cx, 1
     je equal_option_1
 
+    ; Option 2
     mov si, option_2
     mov bx, input
     call compare_strs_si_bx
-
     cmp cx, 1
     je equal_option_2
 
     cmp cx, 0
     je equal_random_string
-
-    jmp equal_to_nothing      ; если не равны, то выводим "Wrong command!"
 
 equal_help:
     mov si, help_desc
@@ -125,13 +137,79 @@ equal_help:
     jmp done
 
 equal_option_1:
-    mov si, variables_1
+    mov si, variables
+    call print_string_si
+    mov si, n
     call print_string_si
 
+    inc byte [var_flag]
     jmp done
 
+n_processing:
+    mov si, input
+    call print_string_si
+    mov si, new_line
+    call print_string_si
+    mov si, head
+    call print_string_si
+
+    inc byte [var_flag]
+    jmp done
+
+head_processing:
+    mov si, input
+    call print_string_si
+    mov si, new_line
+    call print_string_si
+
+    mov si, track
+    call print_string_si
+
+    inc byte [var_flag]
+    jmp done
+
+; track_processing:
+;     mov si, input
+;     call print_string_si
+;     mov si, new_line
+;     call print_string_si
+
+;     inc byte [var_flag]
+;     ; mov byte [var_flag], 4
+
+;     mov si, sector
+;     call print_string_si
+
+;     jmp done
+
+; sector_processing:
+;     mov si, input
+;     call print_string_si
+;     mov si, new_line
+;     call print_string_si
+;     mov si, string
+;     call print_string_si
+
+;     inc byte [var_flag]
+;     ; mov byte [var_flag], 5
+;     jmp done
+
+; string_processing:
+;     mov si, input
+;     call print_string_si
+;     mov si, new_line
+;     call print_string_si
+;     inc byte [var_flag]
+;     mov si, goodbye
+;     call print_string_si
+;     ; mov byte [var_flag], 0
+
+;     jmp done
+
 equal_option_2:
-    mov si, variables_2
+    mov si, variables
+    call print_string_si
+    mov si, help_desc
     call print_string_si
 
     jmp done
@@ -140,18 +218,10 @@ equal_random_string:
     mov si, new_line          ; печатаем символ новой строки
     call print_string_si
 
-
-    mov bx, input
-    mov si, bx
+    mov si, input
     call print_string_si
 
     mov si, new_line          ; печатаем символ новой строки
-    call print_string_si
-
-    jmp done
-
-equal_to_nothing:
-    mov si, wrong_command
     call print_string_si
 
     jmp done
@@ -170,19 +240,23 @@ exit:
     ret
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
-wrong_command: db "Invalid command", 0x0d, 0xa, 0
-greetings: db "Floppy Commands", 0x0d, 0xa, 0xa, 0
-help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
-goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
-prompt: db ">", 0
-new_line: db 0x0d, 0xa, 0
-help_command: db "help", 0
-option_1: db "1", 0
-option_2: db "2", 0
-option_3: db "3", 0
-variables_1: db "N - Times to print, Address - {Head, Track, Sector}, String - {Your string}", 0x0d, 0xa, 0
-variables_2: db "N - Sectors, Address - {Head, Track, Sector}, String - {Your string}", 0x0d, 0xa, 0
-input: times 64 db 0          ; размер буффера - 64 байта
+section .data
+    help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
+    variables: db "n, head, track, sector", 0x0d, 0xa, 0
+    n: db "n = ", 0
+    head: db "head = ", 0
+    track: db "track = ", 0
+    sector: db "sector = ", 0
+    string: db "string = ", 0
+    goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
+    new_line: db 0x0d, 0xa, 0
+    help_command: db "help", 0
+    option_1: db "1", 0
+    var_flag: db 0
+    option_2: db "2", 0
+    option_3: db "3", 0
+    input: times 256 db 0          ; размер буффера - 256 байта
+    n_input: times 256 db 0
 
-times 510 - ($-$$) db 0
+times 2040 - ($-$$) db 0
 dw 0xaa55
