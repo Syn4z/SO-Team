@@ -1,47 +1,40 @@
 org 0x7c00
 
-message: db '@@@FAF-213 Sorin IATCO###', 0
+section .data
+    message_1: times 10 db "@@@FAF-213 Sorin IATCO###"
+    ; message_2: times 10 db "@@@FAF-213 Dinu GUTU###"
+    ; message_3: times 10 db "@@@FAF-213 Ciprian BOTNARI###"
 
 section .text
     global _start
 
 _start:
-    ; Initialization
-    mov si, 10          ; Set loop counter to 10
+    ; Print string
+    mov ah, 0eh         ; Function code for print string
+    mov al, 0           ; Page number
+    mov bh, 0           ; Display page number
+    mov bl, 7           ; Text attribute
+    mov cx, 10          ; Number of characters to print
+    mov bp, message_1     ; Pointer to the string
+    int 10h             ; BIOS interrupt
 
-read_sector_loop:
-    ; Read existing data from the sector into the buffer
-    mov ah, 02h         ; Function code for read sectors
-    mov al, 1           ; Number of sectors to read
-    mov ch, 1           ; Cylinder number     
-    mov cl, 5           ; Sector number    
-    mov dh, 1           ; Head number
-    mov bx, buffer      ; Pointer to the buffer
-    int 13h             ; BIOS interrupt
-
-    ; Concatenate the new message to the existing data
-    mov di, buffer
-    add di, 27          ; Move to the end of the existing data
-    mov si, message
-    add si, 0           ; Pointer to the new message
-    rep movsb           ; Copy the new message to the buffer
-
-    ; Write the updated data back to the sector
-    mov ah, 03h         ; Function code for write sectors
+    ; First sector
+    mov ah, 03h        ; Function code for write sectors
     mov al, 1           ; Number of sectors to write
-    mov ch, 1           ; Cylinder number     
-    mov cl, 5           ; Sector number    
+    mov ch, 2           ; Cylinder number     
+    mov cl, 1           ; Sector number    
     mov dh, 1           ; Head number
-    mov bx, buffer      ; Pointer to the buffer
-    int 13h             ; BIOS interrupt
+    mov bx, message_1   ; Pointer to the string
+    int 13h            ; BIOS interrupt
 
-    ; Loop control
-    dec si
-    cmp si, 0
-    jnz read_sector_loop
+    ; Second sector
+    mov ah, 03h        ; Function code for write sectors
+    mov al, 1           ; Number of sectors to write
+    mov ch, 2           ; Cylinder number     
+    mov cl, 18           ; Sector number    
+    mov dh, 1           ; Head number
+    mov bx, message_1   ; Pointer to the string
+    int 13h            ; BIOS interrupt
 
-    ; Program termination
-    mov ah, 4ch         ; Function code for program termination
-    int 21h             ; DOS interrupt
-
-buffer: resb 512     ; Buffer to store the sector data
+    ; mov ah, 4ch        ; Function code for program termination
+    ; int 21h             ; DOS interrupt

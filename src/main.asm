@@ -5,7 +5,6 @@ jmp start                     ; сразу переходим в start
 
 %include "print_string.asm"
 %include "str_compare.asm"
-;%include "utils.asm"
 
 ; ====================================================
 
