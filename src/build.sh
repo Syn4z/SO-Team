@@ -8,6 +8,7 @@ fi
 filename_with_extension="$1"
 filename="${filename_with_extension%.*}"
 
+bootloader_file="bootloader.asm"
 asm_file="$filename_with_extension"
 com_file="$filename.com"
 flp_file="$filename.flp"
@@ -21,8 +22,15 @@ fi
 echo "Step 1: Compilation completed."
 
 # Step 2: Copy the .com file to a .flp file
-cp "$com_file" "$flp_file"
-echo "Step 2: Copied $com_file to $flp_file."
+# cp "$com_file" "$flp_file"
+# echo "Step 2: Copied $com_file to $flp_file."
+nasm -f bin -o "bootloader.com" "$bootloader_file"
+if [ $? -ne 0 ]; then
+  echo "Compilation failed. Check your bootloader code."
+  exit 1
+fi
+echo "Step 2: Compilation of boatloader completed."
+cat "bootloader.com" "$com_file" > "$flp_file"
 
 # Step 3: Resize the .flp file to 1.44MB
 truncate -s 1474560 "$flp_file"
