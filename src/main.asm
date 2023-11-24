@@ -5,7 +5,7 @@ jmp start                     ; сразу переходим в start
 
 %include "print_string.asm"
 %include "str_compare.asm"
-%include "utils.asm"
+;%include "utils.asm"
 
 ; ====================================================
 
@@ -85,13 +85,11 @@ check_the_input:
     mov byte [input+bx], 0    ; в конце ввода ставим ноль, означающий конец
                               ; стркоки (тот же '\0' в Си)
 
+    jmp write_to_floppy
+
     mov si, new_line          ; печатаем символ новой строки
     call print_string_si
 
-    ; cmp byte [var_flag], 1
-    ; jg increment
-
-    ; inc byte [var_flag]
     ; Option 1 processing
     cmp byte [var_flag], 1
     je n_processing
@@ -114,7 +112,6 @@ check_the_input:
     cmp cx, 1                 ; compare_strs_si_bx загружает в cx 1, если ; строки равны друг другу
     je equal_help             ; равны => вызываем функцию отображения
                               ; текста help
-
     ; Option 1
     mov si, option_1
     mov bx, input
@@ -190,7 +187,7 @@ sector_processing:
     call print_string_si
 
     inc byte [var_flag]
-    ; mov byte [var_flag], 5
+
     jmp done
 
 string_processing:
@@ -201,7 +198,6 @@ string_processing:
     inc byte [var_flag]
     mov si, goodbye
     call print_string_si
-    ; mov byte [var_flag], 0
 
     jmp done
 
@@ -242,21 +238,62 @@ done:
 exit:
     ret
 
+write_to_floppy:
+    mov ah, 03h
+    mov al, 1
+
+    ; set the address of the first sector to write
+    mov dh, [head]
+    mov ch, [track]
+    mov cl, [sector]
+
+    mov bx, input
+
+    ; set the disk type to floppy
+    mov dl, 0
+    int 13h
+
+    ; print error code
+    mov al, '0'
+    add al, ah
+    mov ah, 0eh
+    int 10h
+
+    mov si, new_line
+    call print_string_si
+
+
+    dec byte [n]
+    inc byte [sector]
+    cmp byte [n], 0
+    jne write_to_floppy
+
+    mov si, new_line
+    call print_string_si
+
+    jmp start
+
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
-section .data
-    help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
-    variables: db "n, head, track, sector", 0x0d, 0xa, 0
-    n: db "n = ", 0
-    head: db "head = ", 0
-    track: db "track = ", 0
-    sector: db "sector = ", 0
-    string: db "string = ", 0
-    goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
-    new_line: db 0x0d, 0xa, 0
-    help_command: db "help", 0
-    option_1: db "1", 0
-    var_flag: db 0
-    option_2: db "2", 0
-    option_3: db "3", 0
-    input: times 256 db 0          ; размер буффера - 256 байта
-    n_input: times 256 db 0
+help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
+variables: db "n, head, track, sector", 0x0d, 0xa, 0
+n_prompt: db "n = ", 0
+head_prompt: db "head = ", 0
+track_prompt: db "track = ", 0
+sector_prompt: db "sector = ", 0
+string: db "string = ", 0
+goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
+help_command: db "help", 0
+option_1: db "1", 0
+option_2: db "2", 0
+option_3: db "3", 0
+
+new_line: db 0x0d, 0xa, 0
+
+n: db 3
+head: db 1
+track: db 1
+sector: db 1
+var_flag: db 0
+result: db 0
+
+input: times 256 db 0
