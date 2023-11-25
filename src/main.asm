@@ -221,9 +221,6 @@ string_processing:
     mov si, new_line
     call print_string_si
 
-;    mov si, goodbye
-;    call print_string_si
-
     jmp fill_write_buffer
 
 equal_option_2:
@@ -345,16 +342,15 @@ write_to_floppy:
 
 read_floppy:
     mov ah, 02h
-    mov al, 1
+    mov al, [n]
     mov ch, [track]
     mov cl, [sector]
     mov dl, 0
     mov dh, [head]
-    mov bx, floppy_buffer
+    mov bx, [ram_start]
+    mov es, bx
+    mov bx, [ram_end]
     int 13h
-
-    mov si, floppy_buffer
-    call print_string_si
 
     mov si, new_line
     call print_string_si
@@ -365,6 +361,9 @@ read_floppy:
     mov ah, 0eh
     int 10h
 
+;    cmp ah, 0
+;    je print_ram
+
     mov si, new_line
     call print_string_si
 
@@ -372,6 +371,16 @@ read_floppy:
     mov byte [var_flag], 0
 
     jmp clear_buffer
+
+print_ram:
+    mov si, success_ram
+    call print_string_si
+    mov bx, [ram_start]
+    mov es, bx
+    mov bp, [ram_end]
+
+    jmp done
+
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
@@ -386,11 +395,13 @@ sector_prompt: db "sector = ", 0
 string_prompt: db "string = ", 0
 ram_start_prompt: db "start addr = ", 0
 ram_end_prompt: db "end addr = ", 0
+
 goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
 help_command: db "help", 0
 option_1: db "1", 0
 option_2: db "2", 0
 option_3: db "3", 0
+success_ram: db "Successfully written to RAM", 0
 
 new_line: db 0x0d, 0xa, 0
 
@@ -399,8 +410,8 @@ n: db 0
 head: db 0
 track: db 0
 sector: db 0
-ram_start: db 0
-ram_end: db 0
+ram_start: dw 0x6c80
+ram_end: dw 0x6b0
 var_flag: db 0
 ram_flag: db 0
 result: db 0
