@@ -137,7 +137,7 @@ equal_help:
 equal_option_1:
     mov si, variables
     call print_string_si
-    mov si, n
+    mov si, n_prompt
     call print_string_si
 
     inc byte [var_flag]
@@ -148,10 +148,10 @@ n_processing:
     call print_string_si
     mov si, new_line
     call print_string_si
-    mov si, head
+    mov si, head_prompt
     call print_string_si
 
-    call increment
+    inc byte [var_flag]
     jmp done
 
 head_processing:
@@ -160,10 +160,10 @@ head_processing:
     mov si, new_line
     call print_string_si
 
-    mov si, track
+    mov si, track_prompt
     call print_string_si
 
-    call increment
+    inc byte [var_flag]
     jmp done
 
 track_processing:
@@ -171,10 +171,10 @@ track_processing:
     call print_string_si
     mov si, new_line
     call print_string_si
-    mov si, sector
+    mov si, sector_prompt
     call print_string_si
 
-    call increment
+    inc byte [var_flag]
     jmp done
 
 sector_processing:
@@ -182,11 +182,10 @@ sector_processing:
     call print_string_si
     mov si, new_line
     call print_string_si
-    mov si, string
+    mov si, string_prompt
     call print_string_si
 
     inc byte [var_flag]
-
     jmp done
 
 string_processing:
@@ -198,11 +197,8 @@ string_processing:
     mov si, goodbye
     call print_string_si
 
+    mov byte [var_flag], 0
     jmp done
-
-increment: 
-    inc byte [var_flag]
-    ret
 
 equal_option_2:
     mov si, variables
@@ -238,18 +234,14 @@ exit:
     ret
 
 write_to_floppy:
+    ; set the address of the first sector to write
     mov ah, 03h
     mov al, 1
-
-    ; set the address of the first sector to write
-    mov dh, [head]
     mov ch, [track]
     mov cl, [sector]
-
-    mov bx, input
-
-    ; set the disk type to floppy
     mov dl, 0
+    mov dh, [head]
+    mov bx, input
     int 13h
 
     ; print error code
@@ -261,7 +253,6 @@ write_to_floppy:
     mov si, new_line
     call print_string_si
 
-
     dec byte [n]
     inc byte [sector]
     cmp byte [n], 0
@@ -270,7 +261,7 @@ write_to_floppy:
     mov si, new_line
     call print_string_si
 
-    jmp start
+    jmp stop_cpu
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
@@ -279,7 +270,7 @@ n_prompt: db "n = ", 0
 head_prompt: db "head = ", 0
 track_prompt: db "track = ", 0
 sector_prompt: db "sector = ", 0
-string: db "string = ", 0
+string_prompt: db "string = ", 0
 goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
 help_command: db "help", 0
 option_1: db "1", 0
@@ -293,6 +284,5 @@ head: db 1
 track: db 1
 sector: db 1
 var_flag: db 0
-result: db 0
 
 input: times 256 db 0
