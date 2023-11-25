@@ -84,8 +84,6 @@ check_the_input:
     mov byte [input+bx], 0    ; в конце ввода ставим ноль, означающий конец
                               ; стркоки (тот же '\0' в Си)
 
-    jmp write_to_floppy
-
     mov si, new_line          ; печатаем символ новой строки
     call print_string_si
 
@@ -146,6 +144,11 @@ equal_option_1:
 n_processing:
     mov si, input
     call print_string_si
+
+    call convert_input_int
+    mov al, [result]
+    mov [n], al
+
     mov si, new_line
     call print_string_si
     mov si, head_prompt
@@ -157,6 +160,11 @@ n_processing:
 head_processing:
     mov si, input
     call print_string_si
+
+    call convert_input_int
+    mov al, [result]
+    mov [head], al
+
     mov si, new_line
     call print_string_si
 
@@ -166,9 +174,15 @@ head_processing:
     inc byte [var_flag]
     jmp done
 
+
 track_processing:
     mov si, input
     call print_string_si
+
+    call convert_input_int
+    mov al, [result]
+    mov [track], al
+
     mov si, new_line
     call print_string_si
     mov si, sector_prompt
@@ -177,9 +191,15 @@ track_processing:
     inc byte [var_flag]
     jmp done
 
+
 sector_processing:
     mov si, input
     call print_string_si
+
+    call convert_input_int
+    mov al, [result]
+    mov [sector], al
+
     mov si, new_line
     call print_string_si
     mov si, string_prompt
@@ -188,17 +208,18 @@ sector_processing:
     inc byte [var_flag]
     jmp done
 
+
 string_processing:
     mov si, input
     call print_string_si
     mov si, new_line
     call print_string_si
-    inc byte [var_flag]
+
     mov si, goodbye
     call print_string_si
 
     mov byte [var_flag], 0
-    jmp done
+    jmp write_to_floppy
 
 equal_option_2:
     mov si, variables
@@ -232,6 +253,25 @@ done:
 
 exit:
     ret
+
+convert_input_int:
+    mov si, input     ; Point SI to your input
+    mov byte [result], 0
+    xor ax, ax        ; Clear AX
+    xor cx, cx        ; Clear CX
+
+    next_digit:
+        lodsb           ; Load byte at address SI into AL, increment SI
+        cmp al, 0       ; Check for end of string
+        je stop         ; If end of string, jump to done
+        sub al, '0'     ; Convert from ASCII to number
+        movzx ax, al    ; Zero-extend AL into AX
+        imul cx, cx, 10 ; Multiply CX by 10
+        add [result], ax      ; Add AX to CX
+        jmp next_digit  ; Repeat for next digit
+
+    stop:
+        ret
 
 write_to_floppy:
     ; set the address of the first sector to write
@@ -279,10 +319,12 @@ option_3: db "3", 0
 
 new_line: db 0x0d, 0xa, 0
 
-n: db 3
-head: db 1
-track: db 1
+n: db 0
+head: db 0
+track: db 0
 sector: db 1
 var_flag: db 0
+
+result: db 0
 
 input: times 256 db 0
