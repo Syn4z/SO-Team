@@ -224,7 +224,7 @@ string_processing:
 ;    mov si, goodbye
 ;    call print_string_si
 
-    jmp write_to_floppy
+    jmp fill_write_buffer
 
 equal_option_2:
     mov si, variables_2
@@ -282,6 +282,43 @@ convert_input_int:
     stop:
         ret
 
+fill_write_buffer:
+    mov si, input
+    mov di, floppy_buffer
+    xor ax, ax
+    xor bx, bx
+
+    loop_buffer:
+        cmp ax, 512
+        je write_to_floppy
+        cmp byte [n], 0
+        je write_to_floppy
+
+        mov bl, byte [si]
+        mov byte [di], bl
+
+        inc ax
+        inc si
+        inc di
+
+        cmp byte [si], 0
+        jne loop_buffer
+        mov si, input
+        dec byte [n]
+
+        jmp loop_buffer
+
+clear_buffer:
+    cmp byte [di], 0
+    je done
+
+    mov byte [di], 0
+    inc di
+    cmp di, floppy_buffer + 512		; Exit loop if at the end of buffer
+    je done
+
+    jmp clear_buffer
+
 write_to_floppy:
     ; set the address of the first sector to write
     mov ah, 03h
@@ -290,7 +327,7 @@ write_to_floppy:
     mov cl, [sector]
     mov dl, 0
     mov dh, [head]
-    mov bx, input
+    mov bx, floppy_buffer
     int 13h
 
     ; print error code
@@ -302,17 +339,9 @@ write_to_floppy:
     mov si, new_line
     call print_string_si
 
-    dec byte [n]
-    inc byte [sector]
-    cmp byte [n], 0
-    jne write_to_floppy
-
-    mov si, new_line
-    call print_string_si
-
     mov byte [var_flag], 0
 
-    jmp done
+    jmp clear_buffer
 
 read_floppy:
     mov ah, 02h
@@ -321,11 +350,12 @@ read_floppy:
     mov cl, [sector]
     mov dl, 0
     mov dh, [head]
-    mov bx, input
+    mov bx, floppy_buffer
     int 13h
 
-    mov si, input
+    mov si, floppy_buffer
     call print_string_si
+
     mov si, new_line
     call print_string_si
 
@@ -338,18 +368,10 @@ read_floppy:
     mov si, new_line
     call print_string_si
 
-    dec byte [n]
-    inc byte [sector]
-    cmp byte [n], 0
-    jne read_floppy
-
-    mov si, new_line
-    call print_string_si
-
     mov byte [ram_flag], 0
     mov byte [var_flag], 0
 
-    jmp done
+    jmp clear_buffer
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
@@ -383,4 +405,5 @@ var_flag: db 0
 ram_flag: db 0
 result: db 0
 
+floppy_buffer: times 512 db 0
 input: times 256 db 0
