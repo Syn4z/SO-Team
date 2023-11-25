@@ -133,7 +133,7 @@ equal_help:
     jmp done
 
 equal_option_1:
-    mov si, variables
+    mov si, variables_1
     call print_string_si
     mov si, n_prompt
     call print_string_si
@@ -202,12 +202,18 @@ sector_processing:
 
     mov si, new_line
     call print_string_si
+
+    cmp byte [ram_flag], 1
+    je read_floppy
+
     mov si, string_prompt
     call print_string_si
 
     inc byte [var_flag]
     jmp done
 
+ram_processing:
+    jmp read_floppy
 
 string_processing:
     mov si, input
@@ -215,17 +221,19 @@ string_processing:
     mov si, new_line
     call print_string_si
 
-    mov si, goodbye
-    call print_string_si
+;    mov si, goodbye
+;    call print_string_si
 
-    mov byte [var_flag], 0
     jmp write_to_floppy
 
 equal_option_2:
-    mov si, variables
+    mov si, variables_2
     call print_string_si
-    mov si, help_desc
+    mov si, n_prompt
     call print_string_si
+
+    inc byte [ram_flag]
+    inc byte [var_flag]
 
     jmp done
 
@@ -266,8 +274,9 @@ convert_input_int:
         je stop         ; If end of string, jump to done
         sub al, '0'     ; Convert from ASCII to number
         movzx ax, al    ; Zero-extend AL into AX
-        imul cx, cx, 10 ; Multiply CX by 10
-        add [result], ax      ; Add AX to CX
+        imul cx, 10 ; Multiply CX by 10
+        add cx, ax
+        add [result], cx      ; Add AX to CX
         jmp next_digit  ; Repeat for next digit
 
     stop:
@@ -301,16 +310,60 @@ write_to_floppy:
     mov si, new_line
     call print_string_si
 
-    jmp stop_cpu
+    mov byte [var_flag], 0
+
+    jmp done
+
+read_floppy:
+    mov ah, 02h
+    mov al, 1
+    mov ch, [track]
+    mov cl, [sector]
+    mov dl, 0
+    mov dh, [head]
+    mov bx, input
+    int 13h
+
+    mov si, input
+    call print_string_si
+    mov si, new_line
+    call print_string_si
+
+    ; print error code
+    mov al, '0'
+    add al, ah
+    mov ah, 0eh
+    int 10h
+
+    mov si, new_line
+    call print_string_si
+
+    dec byte [n]
+    inc byte [sector]
+    cmp byte [n], 0
+    jne read_floppy
+
+    mov si, new_line
+    call print_string_si
+
+    mov byte [ram_flag], 0
+    mov byte [var_flag], 0
+
+    jmp done
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
-variables: db "n, head, track, sector", 0x0d, 0xa, 0
+variables_1: db "n, head, track, sector, string", 0x0d, 0xa, 0
+variables_2: db "n, head, track, sector, start, end", 0x0d, 0xa, 0
+variables_3: db "q, head, track, sector, start, end", 0x0d, 0xa, 0
+q_prompt: db "q = ", 0
 n_prompt: db "n = ", 0
 head_prompt: db "head = ", 0
 track_prompt: db "track = ", 0
 sector_prompt: db "sector = ", 0
 string_prompt: db "string = ", 0
+ram_start_prompt: db "start addr = ", 0
+ram_end_prompt: db "end addr = ", 0
 goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
 help_command: db "help", 0
 option_1: db "1", 0
@@ -319,12 +372,15 @@ option_3: db "3", 0
 
 new_line: db 0x0d, 0xa, 0
 
+q: db 0
 n: db 0
 head: db 0
 track: db 0
-sector: db 1
+sector: db 0
+ram_start: db 0
+ram_end: db 0
 var_flag: db 0
-
+ram_flag: db 0
 result: db 0
 
 input: times 256 db 0
