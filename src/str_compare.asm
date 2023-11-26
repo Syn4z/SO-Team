@@ -1,38 +1,38 @@
 compare_strs_si_bx:
-    push si                   ; сохраняем все нужные в функции регистры на стеке
+    push si                    
     push bx
     push ax
 
 comp:
-    mov ah, [bx]              ; напрямую регистры сравнить не получится,
-    cmp [si], ah              ; поэтому переносим первый символ в ah
-    jne not_equal             ; если символы не совпадают, то выходим из функции
+    mov ah, [bx]               
+    cmp [si], ah               
+    jne not_equal              
 
-    cmp byte [si], 0          ; в обратном случае сравниваем, является ли символ
-    je first_zero             ; символом окончания строки
+    cmp byte [si], 0           
+    je first_zero              
 
-    inc si                    ; переходим к следующему байту bx и si
+    inc si                     
     inc bx
 
-    jmp comp                  ; и повторяем
+    jmp comp                   
 
 first_zero:
-    cmp byte [bx], 0          ; если символ в bx != 0, то значит, что строки
-    jne not_equal             ; не равны, поэтому переходим в not_equal
+    cmp byte [bx], 0           
+    jne not_equal              
 
-    mov cx, 1                 ; в обратном случае строки равны, значит cx = 1
+    mov cx, 1                  
 
-    pop si                    ; поэтому восстанавливаем значения регистров
+    pop si                     
     pop bx
     pop ax
 
-    ret                       ; и выходим из функции
+    ret                        
 
 not_equal:
-    mov cx, 0                 ; не равны, значит cx = 0
+    mov cx, 0                  
 
-    pop si                    ; восстанавливаем значения регистров
+    pop si                     
     pop bx
     pop ax
 
-    ret                       ; и выходим из функции
+    ret                        

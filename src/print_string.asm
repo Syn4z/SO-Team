@@ -1,22 +1,22 @@
 print_string_si:
-    push ax                   ; сохраняем ax на стеке
+    push ax                    
 
-    mov ah, 0x0e              ; устанавливаем ah в 0x0e, чтобы вызвать функцию
-    call print_next_char      ; прерывания
+    mov ah, 0x0e               
+    call print_next_char       
 
-    pop ax                    ; восстанавливаем ax
-    ret                       ; и выходим
+    pop ax                     
+    ret                        
 
 print_next_char:
-    mov al, [si]              ; загрузка одного символа
-    cmp al, 0                 ; если si закончилась
+    mov al, [si]               
+    cmp al, 0                  
 
-    jz if_zero                ; то выходим из функции
+    jz if_zero                 
 
-    int 0x10                  ; в обратном случае печатаем al
-    inc si                    ; и инкрементируем указатель
+    int 0x10                   
+    inc si                     
 
-    jmp print_next_char       ; и начинаем заново...
+    jmp print_next_char        
 
 if_zero:
     ret

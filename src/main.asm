@@ -1,90 +1,98 @@
 org 1000h
 bits 16
 
-jmp start                     ; сразу переходим в start
+jmp start                    
 
 %include "print_string.asm"
 %include "str_compare.asm"
 
-; ====================================================
-
 start:
-    cli                                ; запрещаем прерывания, чтобы наш код 
-                                       ; ничто лишнее не останавливало
-    mov ah, 0x00              ; очистка экрана
+    mov ah, 0x00              
     mov al, 0x03
     int 0x10
 
-    mov sp, 0x7c00            ; инициализация стека
+    mov sp, 1000h 
 
-mainloop:
-    ; mov si, new_line
-    ; call print_string_si
-    ; mov si, help_desc         ; печатаем текст help
-    ; call print_string_si
-    call get_input            ; вызываем функцию ожидания ввода
-    jmp mainloop              ; повторяем mainloop...
+    ; Reset all variables
+    mov byte [n], 0
+    mov byte [head], 0
+    mov byte [track], 0
+    mov byte [sector], 0
+    mov word [ram_start], 0
+    mov word [ram_end], 0
+    mov byte [var_flag], 0
+    mov byte [ram_flag], 0
+    mov byte [q_flag], 0
+    mov byte [ram_success], 0
+    call clear_buffer
 
-get_input:
-    mov bx, 0                 ; инициализируем bx как индекс для хранения ввода
-
-input_processing:
-    mov ah, 0x0               ; параметр для вызова 0x16
-    int 0x16                  ; получаем ASCII код
-
-    cmp al, 0x0d              ; если нажали enter
-    je check_the_input        ; то вызываем функцию, в которой проверяем, какое
-                              ; слово было введено
-
-    cmp al, 0x8               ; если нажали backspace
-    je backspace_pressed
-
-    cmp al, 0x3               ; если нажали ctrl+c
-    je stop_cpu
-
-    mov ah, 0x0e              ; во всех противных случаях - просто печатаем
-                              ; очередной символ из ввода
-    int 0x10
-
-    mov [input+bx], al        ; и сохраняем его в буффер ввода
-    inc bx                    ; увеличиваем индекс
-
-    cmp bx, 255               ; если input переполнен
-    je check_the_input        ; то ведем себя так, будто был нажат enter
-
-    jmp input_processing      ; и идем заново
-
-stop_cpu:
-    mov si, goodbye           ; печатаем прощание
+    mov si, help_desc
     call print_string_si
 
-    jmp $                     ; и останавливаем компьютер
-                              ; $ означает адрес текущей инструкции
+mainloop:
+    call get_input            
+    jmp mainloop              
+
+get_input:
+    mov bx, 0                 
+
+input_processing:
+    mov ah, 0x0               
+    int 0x16                  
+
+    cmp al, 0x3           
+    je start
+
+    cmp al, 0x0d                
+    je check_the_input          
+                                
+
+    cmp al, 0x8               
+    je backspace_pressed
+
+    mov ah, 0x0e             
+                              
+    int 0x10
+
+    mov [input+bx], al        
+    inc bx                    
+
+    cmp bx, 255               
+    je check_the_input       
+
+    jmp input_processing     
+
+stop_cpu:
+    mov si, goodbye          
+    call print_string_si
+
+    jmp $                     
+                              
 
 backspace_pressed:
-    cmp bx, 0                 ; если backspace нажат, но input пуст, то
-    je input_processing       ; ничего не делаем
+    cmp bx, 0                 
+    je input_processing       
 
-    mov ah, 0x0e              ; печатаем backspace. это значит, что каретка
-    int 0x10                  ; просто передвинется назад, но сам символ не сотрется
+    mov ah, 0x0e              
+    int 0x10                 
 
-    mov al, ' '               ; поэтому печатаем пробел на том месте, куда
-    int 0x10                  ; встала каретка
+    mov al, ' '                
+    int 0x10                   
 
-    mov al, 0x8               ; пробел передвинет каретку в изначальное положение
-    int 0x10                  ; поэтому еще раз печатаем backspace
+    mov al, 0x8                
+    int 0x10                   
 
     dec bx
-    mov byte [input+bx], 0    ; и убираем из input последний символ
+    mov byte [input+bx], 0     
 
-    jmp input_processing      ; и возвращаемся обратно
+    jmp input_processing       
 
 check_the_input:
     inc bx
-    mov byte [input+bx], 0    ; в конце ввода ставим ноль, означающий конец
-                              ; стркоки (тот же '\0' в Си)
+    mov byte [input+bx], 0     
+                               
 
-    mov si, new_line          ; печатаем символ новой строки
+    mov si, new_line           
     call print_string_si
 
     ; Q processing
@@ -114,12 +122,12 @@ check_the_input:
     cmp byte [var_flag], 5
     je string_processing
 
-    mov si, help_command      ; в si загружаем заранее подготовленное слово help
-    mov bx, input             ; а в bx - сам ввод
-    call compare_strs_si_bx   ; сравниваем si и bx (введено ли help)
-    cmp cx, 1                 ; compare_strs_si_bx загружает в cx 1, если ; строки равны друг другу
-    je equal_help             ; равны => вызываем функцию отображения
-                              ; текста help
+    mov si, help_command       
+    mov bx, input              
+    call compare_strs_si_bx    
+    cmp cx, 1                  
+    je equal_help              
+                               
     ; Option 1
     mov si, option_1
     mov bx, input
@@ -180,7 +188,6 @@ head_processing:
     inc byte [var_flag]
     jmp done
 
-
 track_processing:
     call convert_input_int
     mov al, [result]
@@ -191,7 +198,6 @@ track_processing:
 
     inc byte [var_flag]
     jmp done
-
 
 sector_processing:
     call convert_input_int
@@ -215,15 +221,8 @@ ram_processing:
     jmp done
 
 segment_processing:
-    mov si, input
-    call print_string_si
-
-;    call convert_input_int
-;    mov al, [result]
-;    mov [sector], al
-
-    mov si, new_line
-    call print_string_si
+    mov si, ram_start
+    call read_address_process_input
 
     mov si, ram_end_prompt
     call print_string_si
@@ -232,12 +231,8 @@ segment_processing:
     jmp done
 
 address_processing:
-    mov si, input
-    call print_string_si
-
-    ;    call convert_input_int
-    ;    mov al, [result]
-    ;    mov [sector], al
+    mov si, ram_end
+    call read_address_process_input
 
     mov si, new_line
     call print_string_si
@@ -247,24 +242,28 @@ address_processing:
 
     jmp read_floppy
 
-;read_address_process_input:
-;    mov di, segment_buffer
-;    mov si, segment_word
-;read_address_process_cond:
-;    cmp di, segment_buffer+8
-;    je read_address_process_input_for_end
-;    mov al, [di+2]
-;    shl al, 4
-;    or al, [di+3]
-;    mov ah, [di]
-;    shl ah, 4
-;    or ah, [di+1]
-;    mov word [si], ax
-;    add di, 4
-;    add si, 2
-;    inc bl
-;    jmp read_address_process_cond
+read_address_process_input:
+   mov di, input
 
+address_processing_input:
+   cmp di, input + 4
+   je address_processing_input_done
+
+   mov al, [di + 2]
+   shl al, 4
+   or al, [di + 3]
+   mov ah, [di]
+   shl ah, 4
+   or ah, [di + 1]
+   mov word [si], ax
+   add di, 4
+   add si, 2
+   inc bl
+
+   jmp address_processing_input
+
+address_processing_input_done:
+    ret
 
 string_processing:
     jmp fill_write_buffer
@@ -306,26 +305,26 @@ q_processing:
     jmp done
 
 equal_random_string:
-    mov si, new_line          ; печатаем символ новой строки
+    mov si, new_line           
     call print_string_si
 
     mov si, input
     call print_string_si
 
-    mov si, new_line          ; печатаем символ новой строки
+    mov si, new_line           
     call print_string_si
 
     jmp done
 
-; done очищает всю переменную input
+ 
 done:
-    cmp bx, 0                 ; если зашли дальше начала input в памяти
-    je exit                   ; то вызываем функцию, идующую обратно в mainloop
+    cmp bx, 0                  
+    je exit                    
 
-    dec bx                    ; если нет, то инициализируем очередной байт нулем
+    dec bx                     
     mov byte [input+bx], 0
 
-    jmp done                  ; и делаем то же самое заново
+    jmp done                   
 
 exit:
     ret
@@ -453,20 +452,23 @@ read_floppy:
 
 print_ram:
     call clear_screen
+
     mov si, success_ram
     call print_string_si
+
     call print_ram_volume
+
     mov si, new_line
     call print_string_si
 
-    jmp clear_buffer
+    jmp done
 
 print_fail_statement:
     call clear_screen
     mov si, fail_ram
     call print_string_si
 
-    jmp clear_buffer
+    jmp done
 
 clear_screen:
     mov ax, 0x0003  ; Video mode number (0x03 for text mode 80x25)
@@ -527,7 +529,6 @@ ram_copy_interrupt:
     jmp clear_buffer
 
 
-; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
 variables_1: db "n, head, track, sector, string", 0x0d, 0xa, 0
 variables_2: db "n, head, track, sector, start, end", 0x0d, 0xa, 0
@@ -557,8 +558,8 @@ n: db 0
 head: db 0
 track: db 0
 sector: db 0
-ram_start: dw 0x6c00
-ram_end: dw 0x6c10
+ram_start: dw 0
+ram_end: dw 0
 var_flag: db 0
 ram_flag: db 0
 q_flag: db 0
