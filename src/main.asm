@@ -49,7 +49,7 @@ input_processing:
     mov [input+bx], al        ; и сохраняем его в буффер ввода
     inc bx                    ; увеличиваем индекс
 
-    cmp bx, 256               ; если input переполнен
+    cmp bx, 255               ; если input переполнен
     je check_the_input        ; то ведем себя так, будто был нажат enter
 
     jmp input_processing      ; и идем заново
@@ -86,6 +86,10 @@ check_the_input:
 
     mov si, new_line          ; печатаем символ новой строки
     call print_string_si
+
+    ; Q processing
+    cmp byte [q_flag], 1
+    je q_processing
 
     ; RAM processing
     cmp byte [ram_flag], 2
@@ -129,6 +133,12 @@ check_the_input:
     call compare_strs_si_bx
     cmp cx, 1
     je equal_option_2
+
+    mov si, option_3
+    mov bx, input
+    call compare_strs_si_bx
+    cmp cx, 1
+    je equal_option_3
 
     cmp cx, 0
     je equal_random_string
@@ -232,6 +242,9 @@ address_processing:
     mov si, new_line
     call print_string_si
 
+    cmp byte [q_flag], 2
+    je ram_to_floppy
+
     jmp read_floppy
 
 ;read_address_process_input:
@@ -264,6 +277,31 @@ equal_option_2:
 
     inc byte [ram_flag]
     inc byte [var_flag]
+
+    jmp done
+
+equal_option_3:
+    mov si, variables_3
+    call print_string_si
+    mov si, q_prompt
+    call print_string_si
+
+    inc byte [q_flag]
+
+    jmp done
+
+q_processing:
+    call convert_input_int
+    mov al, [result]
+    mov [q], al
+
+    mov si, head_prompt
+    call print_string_si
+
+    inc byte [var_flag]
+    inc byte [var_flag]
+    inc byte [ram_flag]
+    inc byte [q_flag]
 
     jmp done
 
@@ -413,11 +451,6 @@ read_floppy:
     cmp byte [ram_success], 0
     je print_fail_statement
 
-    mov si, new_line
-    call print_string_si
-
-    jmp clear_buffer
-
 print_ram:
     call clear_screen
     mov si, success_ram
@@ -450,6 +483,49 @@ print_ram_volume:
     int 0x10
 
     ret
+
+ram_to_floppy:
+	xor dx, dx
+	mov ax, [q]
+	mov cx, 512
+	div cx								; DX = count % 512, AX = count / 512
+
+	cmp dx, 0
+	jne ram_copy_interrupt				; Don't copy the last sector too if there's nothing to copy from it
+	dec ax
+
+ram_copy_interrupt:
+	mov ah, 03h
+    mov al, 1
+    mov ch, [track]
+    mov cl, [sector]
+    mov dl, 0
+    mov dh, [head]
+	mov es, [ram_start]
+	mov bx, [ram_end]
+	int 13h
+
+	mov si, new_line
+    call print_string_si
+
+    mov si, error_message
+    call print_string_si
+
+    ; print error code
+    mov al, '0'
+    add al, ah
+    mov ah, 0eh
+    int 10h
+
+    mov byte [ram_flag], 0
+    mov byte [var_flag], 0
+    mov byte [q_flag], 0
+
+    mov si, new_line
+    call print_string_si
+
+    jmp clear_buffer
+
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
@@ -485,6 +561,7 @@ ram_start: dw 0x6c00
 ram_end: dw 0x6c10
 var_flag: db 0
 ram_flag: db 0
+q_flag: db 0
 result: db 0
 ram_success: db 0
 
