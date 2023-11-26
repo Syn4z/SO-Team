@@ -87,6 +87,13 @@ check_the_input:
     mov si, new_line          ; печатаем символ новой строки
     call print_string_si
 
+    ; RAM processing
+    cmp byte [ram_flag], 2
+    je segment_processing
+
+    cmp byte [ram_flag], 3
+    je address_processing
+
     ; Option 1 processing
     cmp byte [var_flag], 1
     je n_processing
@@ -142,15 +149,10 @@ equal_option_1:
     jmp done
 
 n_processing:
-    mov si, input
-    call print_string_si
-
     call convert_input_int
     mov al, [result]
     mov [n], al
 
-    mov si, new_line
-    call print_string_si
     mov si, head_prompt
     call print_string_si
 
@@ -158,15 +160,9 @@ n_processing:
     jmp done
 
 head_processing:
-    mov si, input
-    call print_string_si
-
     call convert_input_int
     mov al, [result]
     mov [head], al
-
-    mov si, new_line
-    call print_string_si
 
     mov si, track_prompt
     call print_string_si
@@ -176,15 +172,10 @@ head_processing:
 
 
 track_processing:
-    mov si, input
-    call print_string_si
-
     call convert_input_int
     mov al, [result]
     mov [track], al
 
-    mov si, new_line
-    call print_string_si
     mov si, sector_prompt
     call print_string_si
 
@@ -193,18 +184,12 @@ track_processing:
 
 
 sector_processing:
-    mov si, input
-    call print_string_si
-
     call convert_input_int
     mov al, [result]
     mov [sector], al
 
-    mov si, new_line
-    call print_string_si
-
     cmp byte [ram_flag], 1
-    je read_floppy
+    je ram_processing
 
     mov si, string_prompt
     call print_string_si
@@ -213,14 +198,62 @@ sector_processing:
     jmp done
 
 ram_processing:
-    jmp read_floppy
+    mov si, ram_start_prompt
+    call print_string_si
 
-string_processing:
+    inc byte [ram_flag]
+    jmp done
+
+segment_processing:
     mov si, input
     call print_string_si
+
+;    call convert_input_int
+;    mov al, [result]
+;    mov [sector], al
+
     mov si, new_line
     call print_string_si
 
+    mov si, ram_end_prompt
+    call print_string_si
+
+    inc byte [ram_flag]
+    jmp done
+
+address_processing:
+    mov si, input
+    call print_string_si
+
+    ;    call convert_input_int
+    ;    mov al, [result]
+    ;    mov [sector], al
+
+    mov si, new_line
+    call print_string_si
+
+    jmp read_floppy
+
+;read_address_process_input:
+;    mov di, segment_buffer
+;    mov si, segment_word
+;read_address_process_cond:
+;    cmp di, segment_buffer+8
+;    je read_address_process_input_for_end
+;    mov al, [di+2]
+;    shl al, 4
+;    or al, [di+3]
+;    mov ah, [di]
+;    shl ah, 4
+;    or ah, [di+1]
+;    mov word [si], ax
+;    add di, 4
+;    add si, 2
+;    inc bl
+;    jmp read_address_process_cond
+
+
+string_processing:
     jmp fill_write_buffer
 
 equal_option_2:
@@ -327,11 +360,17 @@ write_to_floppy:
     mov bx, floppy_buffer
     int 13h
 
+    mov si, error_message
+    call print_string_si
+
     ; print error code
     mov al, '0'
     add al, ah
     mov ah, 0eh
     int 10h
+
+    mov si, new_line
+    call print_string_si
 
     mov si, new_line
     call print_string_si
@@ -355,32 +394,62 @@ read_floppy:
     mov si, new_line
     call print_string_si
 
+    mov si, error_message
+    call print_string_si
+
     ; print error code
     mov al, '0'
     add al, ah
+    mov [ram_success], al
     mov ah, 0eh
     int 10h
-
-;    cmp ah, 0
-;    je print_ram
-
-    mov si, new_line
-    call print_string_si
 
     mov byte [ram_flag], 0
     mov byte [var_flag], 0
 
+    cmp byte [ram_success], 0
+    jne print_ram
+
+    cmp byte [ram_success], 0
+    je print_fail_statement
+
+    mov si, new_line
+    call print_string_si
+
     jmp clear_buffer
 
 print_ram:
+    call clear_screen
     mov si, success_ram
     call print_string_si
+    call print_ram_volume
+    mov si, new_line
+    call print_string_si
+
+    jmp clear_buffer
+
+print_fail_statement:
+    call clear_screen
+    mov si, fail_ram
+    call print_string_si
+
+    jmp clear_buffer
+
+clear_screen:
+    mov ax, 0x0003  ; Video mode number (0x03 for text mode 80x25)
+    int 0x10        ; BIOS interrupt 0x10
+    ret ; return to the caller
+
+print_ram_volume:
+    mov ax, 0x1301
     mov bx, [ram_start]
     mov es, bx
+    mov bx, 0x0007
+    mov cx, 512
     mov bp, [ram_end]
+    int 0x10
 
-    jmp done
-
+    ret
 
 ; 0x0d - символ возварата картки, 0xa - символ новой строки
 help_desc: db "1 - keyboard to flp, 2 - floppy to ram, 3 - ram to floppy", 0x0d, 0xa, 0
@@ -401,7 +470,9 @@ help_command: db "help", 0
 option_1: db "1", 0
 option_2: db "2", 0
 option_3: db "3", 0
-success_ram: db "Successfully written to RAM", 0
+success_ram: db "Successfully wrote to RAM", 0
+fail_ram: db "Failed to write to RAM", 0
+error_message: db "Error message: ", 0
 
 new_line: db 0x0d, 0xa, 0
 
@@ -410,11 +481,12 @@ n: db 0
 head: db 0
 track: db 0
 sector: db 0
-ram_start: dw 0x6c80
-ram_end: dw 0x6b0
+ram_start: dw 0x6c00
+ram_end: dw 0x6c10
 var_flag: db 0
 ram_flag: db 0
 result: db 0
+ram_success: db 0
 
 floppy_buffer: times 512 db 0
 input: times 256 db 0
