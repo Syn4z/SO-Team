@@ -476,7 +476,7 @@ print_ram_volume:
     mov bx, [ram_start]         ; Move the value at the address in 'ram_start' to BX
     mov es, bx                  ; Move the value in BX to ES (Extra Segment)
     mov bx, 0x0007              ; Set BX register to 0x0007 (attribute for text)
-    mov cx, 512                 ; Set CX register to 512 (number of characters to print)
+    mov cx, 1024                 ; Set CX register to 512 (number of characters to print)
     mov bp, [ram_end]           ; Move the value at the address in 'ram_end' to BP
     int 0x10                    ; Call BIOS interrupt 0x10
 
@@ -488,19 +488,20 @@ ram_to_floppy:
     mov cx, 512                 ; Set CX register to 512
     div cx                       ; Divide AX by CX, result in AX, remainder in DX
 
-    cmp dx, 0                    ; Compare the value in DX with 0
-    jne ram_copy_interrupt
-    dec ax                       ; Decrement the value in AX
+    inc al
+    mov [num_of_sectors], al                     ; Decrement the value in AX
 
 ram_copy_interrupt:
+    mov bx, [ram_start]         ; Move the value at the address in 'ram_start' to ES (Extra Segment)
+    mov es, bx
+    mov bx, [ram_end]           ; Move the value at the address in 'ram_end' to BX
+    
     mov ah, 03h                 ; Set AH register to 3 (disk write)
-    mov al, 1                   ; Set AL register to 1 (number of sectors to write)
+    mov al, [q]                   ; Set AL register to 1 (number of sectors to write)
     mov ch, [track]             ; Move the value at the address in 'track' to CH
     mov cl, [sector]            ; Move the value at the address in 'sector' to CL
     mov dl, 0                   ; Set DL register to 0 (floppy disk drive)
     mov dh, [head]              ; Move the value at the address in 'head' to DH
-    mov es, [ram_start]         ; Move the value at the address in 'ram_start' to ES (Extra Segment)
-    mov bx, [ram_end]           ; Move the value at the address in 'ram_end' to BX
     int 13h                     ; Call BIOS interrupt 13h
 
     mov si, new_line            ; Move the address of 'new_line' to SI
@@ -537,6 +538,7 @@ sector_prompt: db "sector = ", 0
 string_prompt: db "string = ", 0
 ram_start_prompt: db "start addr = ", 0
 ram_end_prompt: db "end addr = ", 0
+num_of_sectors: db 0
 
 goodbye: db 0x0d, 0xa, "Exiting...", 0x0d, 0xa, 0
 help_command: db "help", 0
