@@ -82,7 +82,7 @@ print_echo:		; Label for printing characters to the screen.
     mov ES, AX		; Set ES to 0 (extra segment).
     mov BP, buffer	; Set BP to point to the buffer.
 
-    mov BL, 60h		; Set BL to 60h (color: black on orange).
+    mov BL, 0h		; Set BL to 60h (color: black on orange).
     mov CX, SI		; Set CX to the current buffer position.
     inc DH		; Increment DH to move to the next row.
     mov DL, 0		; Set DL to 0 (column).
