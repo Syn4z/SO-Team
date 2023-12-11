@@ -90,34 +90,23 @@ print_echo:		; Label for printing characters to the screen.
     mov AX, 1301h	; Set AX to 1301h (teletype output, update cursor).
     int 0x10		; Display the character and update the cursor.
 
-    mov AL, [n]
-    cmp AL, 10        ; Check if the value of buffer n is 10.
-    jl print_regular_n
-
-    mov AL, [n]
-    cmp AL, 10
-    jg print_double_digit_n
+    jmp print_double_digit_n
 
 print_double_digit_n:
-    ; Print the value of buffer n
     mov AX, [n]
     mov BL, 10
     div BL
     add AL, '0' ; Convert to ASCII
     mov [result], AL ; Store ASCII digit in result
-
-    ; Convert the ones digit to ASCII
     add AH, '0' ; Convert to ASCII
     mov [result + 1], AH ; Store ASCII digit in result
+
     mov AH, 0Eh		; Set AH to 0xE (teletype output).
+    mov AL, 20h		; Set AL to 20h (space character).
+    int 0x10		; Display the character and update the cursor.
     mov AL, [result]		; Load the value of buffer n.
     int 10h		; Display the character.
-
-print_regular_n:
-    ; Print the value of buffer n
-    mov AH, 0Eh		; Set AH to 0xE (teletype output).
-    mov AL, [n]		; Load the value of buffer n.
-    add AL, '0'		; Convert the value to ASCII.
+    mov AL, [result+1]		; Load the value of buffer n.
     int 10h		; Display the character.
 
 insert_line:		; Label for inserting a new line.
@@ -190,4 +179,4 @@ increment_n_buffer:   ; Label for incrementing the n buffer.
 
 buffer: times 256 db 0x0	; Define a buffer of 256 bytes, initialized with null characters.
 n: db 0
-result: db 0
+result: times 8 db 0
