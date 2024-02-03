@@ -8,7 +8,6 @@ fi
 filename_with_extension="$1"
 filename="${filename_with_extension%.*}"
 
-bootloader_file="bootloader.asm"
 asm_file="$filename_with_extension"
 com_file="$filename.com"
 flp_file="$filename.flp"
@@ -22,18 +21,20 @@ fi
 echo "Step 1: Compilation completed."
 
 # Step 2: Copy the .com file to a .flp file
-# cp "$com_file" "$flp_file"
-# echo "Step 2: Copied $com_file to $flp_file."
-nasm -f bin -o "bootloader.com" "$bootloader_file"
+nasm -f bin -o "bootloader.com" "bootloader.asm"
+nasm -f bin -o "init_bootloader.com" "init_bootloader.asm"
 if [ $? -ne 0 ]; then
   echo "Compilation failed. Check your bootloader code."
   exit 1
 fi
 echo "Step 2: Compilation of boatloader completed."
-cat "bootloader.com" "$com_file" > "$flp_file"
+# cat "bootloader.com" "$com_file" > "$flp_file"
+
+truncate -s 1474560 "$flp_file"
+dd if="bootloader.com" of="$flp_file" bs=512 seek=1 conv=notrunc
+dd if="$com_file" of="$flp_file" bs=512 seek=3 conv=notrunc
 
 # Step 3: Resize the .flp file to 1.44MB
-truncate -s 1474560 "$flp_file"
 echo "Step 3: Resized $flp_file to 1.44MB."
 
 # Step 4: Close VirtualBox
